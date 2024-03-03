@@ -1,8 +1,8 @@
 //VIEW
 
 // Opsættelse af størrelse af grid
-const numRows = 10;
-const numCols = 10;
+const numRows = 28;
+const numCols = 45;
 
 
 function makeBoardClickable() {
@@ -46,6 +46,24 @@ function toggleCellState(event) {
         }
 }
 
+function updateView() {
+    const container = document.getElementById('game-container');
+
+    for (let i = 0; i < numRows; i++) {
+        for (let j = 0; j < numCols; j++) {
+            const cell = container.querySelector(`[data-row="${i}"][data-col="${j}"]`);
+            const cellState = readFromCellModel(i, j); // Read the state of the cell from the model
+            if (cellState === 1) {
+                cell.classList.remove('dead');
+                cell.classList.add('alive');
+            } else {
+                cell.classList.remove('alive');
+                cell.classList.add('dead');
+            }
+        }
+    }
+}
+
 
 //MODEL
 
@@ -68,12 +86,123 @@ function writeToCellModel(row, col, value) {
     model[row][col] = value;
 }
 
+function updateModel() {
+    const newModel = []; // No need to create a deep copy here
+    
+    for (let i = 0; i < numRows; i++) {
+        newModel[i] = []; // Initialize the inner array
+        for (let j = 0; j < numCols; j++) {
+            const neighbors = countNeighbors(i, j);
+            if (model[i][j] === 1) {
+                // Apply rules for live cells
+                if (neighbors < 2 || neighbors > 3) {
+                    newModel[i][j] = 0; // Cell dies
+                } else {
+                    newModel[i][j] = 1; // Cell survives
+                }
+            } else {
+                // Apply rules for dead cells
+                if (neighbors === 3) {
+                    newModel[i][j] = 1; // Cell becomes alive
+                } else {
+                    newModel[i][j] = 0; // Cell remains dead
+                }
+            }
+        }
+    }
+    
+    // Modify the contents of the existing model array
+    for (let i = 0; i < numRows; i++) {
+        for (let j = 0; j < numCols; j++) {
+            model[i][j] = newModel[i][j];
+        }
+    }
+}
+
+function countNeighbors(row, col) {
+    let count = 0;
+
+    // Define offsets for neighboring cells
+    const offsets = [
+        [-1, -1], [-1, 0], [-1, 1],
+        [0, -1],           [0, 1],
+        [1, -1],  [1, 0],  [1, 1]
+    ];
+
+    // Iterate over the offsets to check each neighboring cell
+    for (const [offsetRow, offsetCol] of offsets) {
+        // Calculate the neighbor's row and column indices
+        const neighborRow = row + offsetRow;
+        const neighborCol = col + offsetCol;
+
+        // Check if the neighbor is within the grid bounds
+        if (neighborRow >= 0 && neighborRow < numRows &&
+            neighborCol >= 0 && neighborCol < numCols) {
+            // Increment count if the neighbor is alive
+            if (model[neighborRow][neighborCol] === 1) {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+
 //CONTROLLER
 
 function start() {
     createGrid();
     createModel();
     makeBoardClickable();
+
+    // Add event listeners to buttons
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('clear-btn').addEventListener('click', clearGrid);
+    document.getElementById('random-btn').addEventListener('click', setRandomCells);
+}
+
+let intervalId;
+
+function startGame() {
+    intervalId = setInterval(updateGame, 100)
+}
+
+function clearGrid() {
+    // Stop the game if it's currently running
+    clearInterval(intervalId);
+    
+    // Clear the model (set all cells to dead)
+    createModel();
+    
+    // Update the view to reflect the cleared grid
+    updateView();
+}
+
+function setRandomCells() {
+    // Stop the game if it's currently running
+    clearInterval(intervalId);
+
+    // Clear the model (set all cells to dead)
+    createModel();
+
+    // Randomly set 15% of the cells to alive
+    const totalCells = numRows * numCols;
+    const cellsToSetAlive = Math.floor(totalCells * 0.15);
+    for (let i = 0; i < cellsToSetAlive; i++) {
+        const randomRow = Math.floor(Math.random() * numRows);
+        const randomCol = Math.floor(Math.random() * numCols);
+        model[randomRow][randomCol] = 1; // Set the cell to alive
+    }
+
+    // Update the view to reflect the random cells
+    updateView();
+}
+
+function updateGame() {
+    updateModel();
+    updateView();
+
 }
 
 window.addEventListener("DOMContentLoaded", start)
